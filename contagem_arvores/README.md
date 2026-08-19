@@ -49,6 +49,23 @@ python -m contagem_arvores.contar_arvores fazenda.kmz --camada "SICAR - Fazendas
 `--diferenca` é útil para isolar o que **não** é área cultivada (APP, reserva
 legal, carreadores, sede) — normalmente é ali que estão as árvores.
 
+### Contagem talhão a talhão
+
+`--por-feicao` conta cada polígono da camada separadamente e gera
+`por_feicao.csv` com uma linha por talhão (área, nº de árvores, árvores/ha) mais
+todos os atributos do KML. Com `--baixar`, o mosaico é baixado **por talhão** —
+é o único jeito viável numa fazenda inteira, já que um mosaico único de milhares
+de hectares passaria de dezenas de milhares de tiles:
+
+```bash
+python -m contagem_arvores.contar_arvores fazenda.kmz \
+    --camada "TALHOES" --por-feicao --baixar --provedor mapbox --token SEU_TOKEN \
+    --diametro-copa 8 --amostras 8
+```
+
+Os mosaicos ficam em `resultado/mosaicos/` e são reaproveitados se você rodar de
+novo com outros parâmetros — calibre em 2 ou 3 talhões antes de soltar os 50.
+
 ### Parâmetros que mais importam
 
 | Parâmetro | Para que serve |
@@ -58,6 +75,7 @@ legal, carreadores, sede) — normalmente é ali que estão as árvores.
 | `--modo escuro` | `escuro`: copa verde e mais escura que o pasto claro (padrão, típico de pasto e cerrado). `verde`: copa verde sobre solo exposto ou pasto seco. `brilho`: separa só por sombra, ignorando cor |
 | `--area-min` / `--area-max` | limites de área de copa em m², para descartar arbustos e manchas grandes de mata contínua |
 | `--camada "NOME"` | usa só uma pasta do KML, em vez da união de todas |
+| `--por-feicao` | conta cada talhão separadamente e gera a tabela consolidada |
 | `--zoom 19` | nível de zoom dos tiles quando usa `--baixar` |
 | `--amostras 6` | número de parcelas recortadas para conferência manual |
 

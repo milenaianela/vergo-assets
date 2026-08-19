@@ -20,6 +20,106 @@ import sys
 from pathlib import Path
 
 
+def _por_feicao(args, caminho_tif, saida, fonte, geom_total) -> int:
+    """Conta talhao a talhao e consolida numa tabela.
+
+    Com `caminho_tif=None` o mosaico e baixado por feicao - e o unico jeito
+    viavel de rodar uma fazenda inteira, ja que um mosaico unico de milhares de
+    hectares passa de dezenas de milhares de tiles."""
+    import csv
+    import random
+
+    from contagem_arvores import aoi as mod_aoi
+    from contagem_arvores import deteccao, saidas
+
+    registros = mod_aoi.carregar_placemarks(args.kml, camada=args.camada)
+    print(f"[3/4] Detectando copas em {len(registros)} feicoes...")
+
+    linhas, todas, resultados = [], [], []
+    campos_extras = []
+    for i, r in enumerate(registros, start=1):
+        print(f"  ({i}/{len(registros)}) {r['nome'] or '-'} - {r['area_ha']:.1f} ha",
+              flush=True)
+        if caminho_tif is None:
+            from contagem_arvores import imagens
+
+            alvo = saida / "mosaicos" / f"{i:03d}_{(r['nome'] or 'feicao')}.tif"
+            if alvo.exists():
+                tif_feicao = alvo
+            else:
+                try:
+                    tif_feicao = imagens.baixar_mosaico(
+                        r["geom"], alvo, provedor=args.provedor, zoom=args.zoom,
+                        token=args.token, url_template=args.url_template,
+                        verboso=False)
+                except Exception as erro:
+                    print(f"      falhou o download: {erro}")
+                    continue
+        else:
+            tif_feicao = caminho_tif
+        try:
+            res = deteccao.detectar(
+                tif_feicao, aoi=r["geom"], diametro_copa=args.diametro_copa,
+                area_min=args.area_min, area_max=args.area_max, modo=args.modo,
+                indice=args.indice, limiar_vegetacao=args.limiar_vegetacao,
+                sensibilidade=args.sensibilidade, verboso=False)
+        except ValueError as erro:      # feicao fora da imagem
+            print(f"      ignorada: {erro}")
+            continue
+        resultados.append((r, res))
+        for a in res.arvores:
+            copia = dict(a)
+            copia["feicao"] = r["nome"]
+            todas.append(copia)
+        linha = {
+            "feicao": r["nome"], "area_ha_poligono": round(r["area_ha"], 2),
+            "area_ha_analisada": round(res.area_ha, 2), "arvores": res.total,
+            "arvores_por_ha": round(res.densidade, 2),
+        }
+        for k, v in r["atributos"].items():
+            linha[k] = v
+            if k not in campos_extras:
+                campos_extras.append(k)
+        linhas.append(linha)
+
+    print("[4/4] Gravando saidas...")
+    campos = ["feicao", "area_ha_poligono", "area_ha_analisada", "arvores",
+              "arvores_por_ha"] + campos_extras
+    with (saida / "por_feicao.csv").open("w", newline="", encoding="utf-8") as f:
+        escritor = csv.DictWriter(f, fieldnames=campos, extrasaction="ignore")
+        escritor.writeheader()
+        escritor.writerows(linhas)
+
+    class _Consolidado:
+        arvores = todas
+        area_ha = sum(l["area_ha_analisada"] for l in linhas)
+        resolucao_m = resultados[0][1].resolucao_m if resultados else 0.0
+        total = len(todas)
+        densidade = total / area_ha if area_ha else 0.0
+        parametros = dict(resultados[0][1].parametros) if resultados else {}
+
+    saidas.escrever_kml(_Consolidado, saida / "arvores.kml", nome=Path(args.kml).stem)
+    saidas.escrever_geojson(_Consolidado, saida / "arvores.geojson")
+    saidas.escrever_csv(_Consolidado, saida / "arvores.csv")
+    saidas.escrever_relatorio(_Consolidado, saida / "relatorio.txt",
+                              nome_area=Path(args.kml).stem, fonte_imagem=fonte,
+                              nomes=[str(l["feicao"]) for l in linhas[:5]])
+
+    if args.amostras and resultados:
+        sorteados = random.Random(42).sample(resultados,
+                                             min(args.amostras, len(resultados)))
+        for i, (r, res) in enumerate(sorteados, start=1):
+            saidas.salvar_amostras(res, saida / "amostras" / f"{i:02d}_{r['nome']}",
+                                   n=1, lado_m=args.lado_parcela)
+
+    print()
+    print(f"  ARVORES DETECTADAS: {len(todas)} em {len(linhas)} feicoes")
+    print(f"  Area analisada....: {_Consolidado.area_ha:.2f} ha")
+    print(f"  Densidade.........: {_Consolidado.densidade:.1f} arvores/ha")
+    print(f"  Tabela por feicao.: {(saida / 'por_feicao.csv').resolve()}")
+    return 0
+
+
 def main(argv=None) -> int:
     p = argparse.ArgumentParser(
         description="Contagem de arvores por imagem de satelite a partir de um KML.",
@@ -47,6 +147,9 @@ def main(argv=None) -> int:
                    help="limiar manual do indice de vegetacao (padrao: Otsu automatico)")
     p.add_argument("--sensibilidade", type=float, default=1.2,
                    help=">1 detecta mais copas (e mais falsos positivos); <1 detecta menos")
+    p.add_argument("--por-feicao", action="store_true",
+                   help="conta separadamente cada talhao/feicao da camada e gera "
+                        "uma tabela com o total de cada um")
     p.add_argument("--amostras", type=int, default=6,
                    help="numero de parcelas para conferencia manual (0 desativa)")
     p.add_argument("--lado-parcela", type=float, default=100.0,
@@ -77,6 +180,12 @@ def main(argv=None) -> int:
             return 2
         fonte = str(caminho_tif)
         print(f"[2/4] Usando imagem informada: {caminho_tif}")
+    elif args.baixar and args.por_feicao:
+        from contagem_arvores import imagens
+
+        fonte = imagens.PROVEDORES.get(args.provedor, {}).get("credito", args.provedor)
+        print(f"[2/4] Mosaico sera baixado por feicao ({args.provedor})")
+        return _por_feicao(args, None, saida, fonte, geom)
     elif args.baixar:
         from contagem_arvores import imagens
 
@@ -88,6 +197,9 @@ def main(argv=None) -> int:
     else:
         print("ERRO: informe --imagem arquivo.tif ou --baixar.", file=sys.stderr)
         return 2
+
+    if args.por_feicao:
+        return _por_feicao(args, caminho_tif, saida, fonte, geom)
 
     print("[3/4] Detectando copas...")
     resultado = deteccao.detectar(

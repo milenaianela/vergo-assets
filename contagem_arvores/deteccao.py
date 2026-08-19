@@ -37,6 +37,8 @@ class Resultado:
     mascara_aoi: np.ndarray
     caminho: str = ""
     escala_imagem: float = 1.0   # px da imagem em memoria por px do raster
+    col_off: int = 0             # recorte usado dentro do raster (bbox da AOI)
+    lin_off: int = 0
     parametros: dict = field(default_factory=dict)
 
     @property
@@ -190,6 +192,7 @@ def detectar(
     from rasterio.windows import Window
 
     with rasterio.open(caminho_tif) as src:
+        base = _janela_da_aoi(src, aoi)
         res = _resolucao_terreno(src)
         area_px = res * res
         raio_px = max(2.0, (diametro_copa / 2.0) / res)
@@ -198,22 +201,27 @@ def detectar(
         if area_max is None:
             area_max = math.pi * (diametro_copa * 1.50) ** 2   # copa 3x o alvo
 
-        em_blocos = src.width * src.height > LIMITE_PIXELS_MEMORIA
+        largura, altura = int(base.width), int(base.height)
+        if largura <= 0 or altura <= 0:
+            raise ValueError("O poligono nao tem sobreposicao com a imagem. "
+                             "Confira se o KML e a imagem cobrem a mesma area.")
+        em_blocos = largura * altura > LIMITE_PIXELS_MEMORIA
         margem = int(math.ceil(raio_px * 6))
         achados: list[tuple[float, float, float]] = []
         pixels_aoi = 0
 
         if em_blocos:
             passo = max(bloco_px - 2 * margem, bloco_px // 2)
-            janelas = [
-                Window(col_off=max(0, x - margem), row_off=max(0, y - margem),
-                       width=min(bloco_px, src.width - max(0, x - margem)),
-                       height=min(bloco_px, src.height - max(0, y - margem)))
-                for y in range(0, src.height, passo)
-                for x in range(0, src.width, passo)
-            ]
+            janelas = []
+            for y in range(0, altura, passo):
+                for x in range(0, largura, passo):
+                    cx, cy = max(0, x - margem), max(0, y - margem)
+                    janelas.append(Window(
+                        col_off=base.col_off + cx, row_off=base.row_off + cy,
+                        width=min(bloco_px, largura - cx),
+                        height=min(bloco_px, altura - cy)))
             if verboso:
-                print(f"  imagem grande ({src.width}x{src.height} px): "
+                print(f"  recorte da AOI: {largura}x{altura} px -> "
                       f"{len(janelas)} blocos de {bloco_px} px")
             for i, janela in enumerate(janelas, start=1):
                 mascara, _ = _mascara_aoi(src, aoi, janela)
@@ -231,18 +239,19 @@ def detectar(
 
             # copas duplicadas na sobreposicao dos blocos
             achados = _remover_duplicadas(achados, raio_px * 0.8)
-            pixels_aoi = _pixels_aoi_total(src, aoi, bloco_px)
-            fator = max(1, int(math.ceil(max(src.width, src.height) / 4000)))
-            imagem = src.read(indexes=[1, 2, 3],
-                              out_shape=(3, src.height // fator, src.width // fator))
-            mascara_saida, _ = _mascara_aoi(src, aoi)
+            pixels_aoi = _pixels_aoi_total(src, aoi, base, bloco_px)
+            fator = max(1, int(math.ceil(max(largura, altura) / 4000)))
+            imagem = src.read(indexes=[1, 2, 3], window=base,
+                              out_shape=(3, altura // fator, largura // fator))
+            mascara_saida, _ = _mascara_aoi(src, aoi, base)
             mascara_saida = mascara_saida[::fator, ::fator]
             escala = 1.0 / fator
         else:
-            mascara, _ = _mascara_aoi(src, aoi)
-            rgb = src.read(indexes=[1, 2, 3])
-            achados = _nucleo(rgb, mascara, res, raio_px, area_min, area_max,
-                              modo, indice, limiar_vegetacao, sensibilidade)
+            mascara, _ = _mascara_aoi(src, aoi, base)
+            rgb = src.read(indexes=[1, 2, 3], window=base)
+            locais = _nucleo(rgb, mascara, res, raio_px, area_min, area_max,
+                             modo, indice, limiar_vegetacao, sensibilidade)
+            achados = [(c + base.col_off, l + base.row_off, a) for c, l, a in locais]
             pixels_aoi = int(mascara.sum())
             imagem, mascara_saida, escala = rgb, mascara, 1.0
 
@@ -272,6 +281,7 @@ def detectar(
         arvores=arvores, area_ha=area_ha, resolucao_m=res, imagem=imagem,
         transform=transform, crs=crs, mascara_aoi=mascara_saida,
         caminho=str(caminho_tif), escala_imagem=escala,
+        col_off=int(base.col_off), lin_off=int(base.row_off),
         parametros={
             "diametro_copa_m": diametro_copa, "modo": modo, "indice": indice,
             "area_min_m2": round(area_min, 2), "area_max_m2": round(area_max, 2),
@@ -298,17 +308,38 @@ def _remover_duplicadas(achados, distancia_min):
     return [a for k, a in enumerate(achados) if k not in descartar]
 
 
-def _pixels_aoi_total(src, aoi, bloco_px):
+def _janela_da_aoi(src, aoi):
+    """Recorte do raster limitado ao bounding box da AOI (evita ler a imagem toda)."""
+    from rasterio.windows import Window, from_bounds
+
+    if aoi is None or src.crs is None:
+        return Window(0, 0, src.width, src.height)
+
+    from shapely.geometry import mapping
+    from rasterio.warp import transform_geom
+    from shapely.geometry import shape
+
+    limites = shape(transform_geom("EPSG:4326", src.crs, mapping(aoi))).bounds
+    janela = from_bounds(*limites, transform=src.transform)
+    col = max(0, int(math.floor(janela.col_off)))
+    lin = max(0, int(math.floor(janela.row_off)))
+    largura = min(src.width - col, int(math.ceil(janela.width)) + 1)
+    altura = min(src.height - lin, int(math.ceil(janela.height)) + 1)
+    return Window(col, lin, max(0, largura), max(0, altura))
+
+
+def _pixels_aoi_total(src, aoi, base, bloco_px):
     """Conta os pixels dentro da AOI sem carregar a mascara inteira."""
     from rasterio.windows import Window
 
     if aoi is None:
-        return src.width * src.height
+        return int(base.width) * int(base.height)
     total = 0
-    for y in range(0, src.height, bloco_px):
-        for x in range(0, src.width, bloco_px):
-            janela = Window(x, y, min(bloco_px, src.width - x),
-                            min(bloco_px, src.height - y))
+    for y in range(0, int(base.height), bloco_px):
+        for x in range(0, int(base.width), bloco_px):
+            janela = Window(base.col_off + x, base.row_off + y,
+                            min(bloco_px, int(base.width) - x),
+                            min(bloco_px, int(base.height) - y))
             mascara, _ = _mascara_aoi(src, aoi, janela)
             total += int(mascara.sum())
     return total

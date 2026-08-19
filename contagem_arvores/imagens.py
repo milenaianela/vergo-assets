@@ -122,7 +122,8 @@ def baixar_mosaico(geom, saida_tif: str | Path, provedor: str = "esri",
     n_tiles = (tx1 - tx0 + 1) * (ty1 - ty0 + 1)
     if n_tiles > 4000:
         raise ValueError(f"{n_tiles} tiles no zoom {z} - area grande demais. "
-                         f"Reduza o zoom ou divida a fazenda em talhoes.")
+                         f"Reduza o zoom ou use --por-feicao para baixar um "
+                         f"mosaico por talhao.")
 
     largura = (tx1 - tx0 + 1) * tamanho_tile
     altura = (ty1 - ty0 + 1) * tamanho_tile

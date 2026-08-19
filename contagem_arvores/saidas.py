@@ -111,7 +111,8 @@ def salvar_conferencia(resultado, caminho, aoi_pixels=None, max_lado=2500):
     desenho = ImageDraw.Draw(desenho_img)
     raio = max(3, int(3 * escala * 2))
     for a in resultado.arvores:
-        cx, cy = a["col"] * escala, a["lin"] * escala
+        cx = (a["col"] - resultado.col_off) * escala
+        cy = (a["lin"] - resultado.lin_off) * escala
         r = max(3.0, (a["diametro_copa_m"] / 2 / resultado.resolucao_m) * escala)
         desenho.ellipse([cx - r, cy - r, cx + r, cy + r], outline=(255, 40, 40), width=2)
     desenho_img.save(caminho)
@@ -130,8 +131,9 @@ def _recortar(resultado, x0, y0, lado_px):
     from rasterio.windows import Window
 
     with rasterio.open(resultado.caminho) as src:
-        janela = Window(x0, y0, min(lado_px, src.width - x0),
-                        min(lado_px, src.height - y0))
+        ax, ay = x0 + resultado.col_off, y0 + resultado.lin_off
+        janela = Window(ax, ay, min(lado_px, src.width - ax),
+                        min(lado_px, src.height - ay))
         rgb = src.read(indexes=[1, 2, 3], window=janela)
     return Image.fromarray(rgb.transpose(1, 2, 0).astype("uint8"))
 
@@ -161,13 +163,15 @@ def salvar_amostras(resultado, pasta, n=8, lado_m=100, semente=42):
         if recorte_mascara.mean() < 0.98:      # so parcelas 100% dentro da AOI
             continue
         dentro = [a for a in resultado.arvores
-                  if x0 <= a["col"] < x0 + lado_px and y0 <= a["lin"] < y0 + lado_px]
+                  if x0 <= a["col"] - resultado.col_off < x0 + lado_px
+                  and y0 <= a["lin"] - resultado.lin_off < y0 + lado_px]
         recorte = _recortar(resultado, x0, y0, lado_px).resize((900, 900))
         marcado = recorte.copy()
         desenho = ImageDraw.Draw(marcado)
         fator = 900 / lado_px
         for a in dentro:
-            cx, cy = (a["col"] - x0) * fator, (a["lin"] - y0) * fator
+            cx = (a["col"] - resultado.col_off - x0) * fator
+            cy = (a["lin"] - resultado.lin_off - y0) * fator
             r = max(4.0, (a["diametro_copa_m"] / 2 / resultado.resolucao_m) * fator)
             desenho.ellipse([cx - r, cy - r, cx + r, cy + r], outline=(255, 40, 40), width=3)
         idx = len(linhas) + 1
