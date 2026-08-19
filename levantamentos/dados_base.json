@@ -1,0 +1,495 @@
+{
+ "proprias": [
+  {
+   "imovel": "Fazenda Ipê",
+   "municipio": "Sto Antonio do Aracanguá",
+   "ccir": "607.029.001.147-7",
+   "area_imovel": 473.34,
+   "matriculas": [
+    {
+     "matricula": 5787,
+     "area": 473.34
+    }
+   ]
+  },
+  {
+   "imovel": "Fazenda São Geraldo",
+   "municipio": "Colina",
+   "ccir": "604.020.000.698-8",
+   "area_imovel": 534.3602,
+   "matriculas": [
+    {
+     "matricula": 176,
+     "area": 467.06
+    },
+    {
+     "matricula": 19852,
+     "area": 26.62
+    },
+    {
+     "matricula": 14036,
+     "area": 40.6802
+    }
+   ]
+  },
+  {
+   "imovel": "Fazenda Conquista",
+   "municipio": "Santo Antonio do Aracanguá",
+   "ccir": "607.029.011.673-2",
+   "area_imovel": 1136.7707999999998,
+   "matriculas": [
+    {
+     "matricula": 73291,
+     "area": 239.0512
+    },
+    {
+     "matricula": 696,
+     "area": 12.1
+    },
+    {
+     "matricula": 41325,
+     "area": 12.1
+    },
+    {
+     "matricula": 41326,
+     "area": 445.885
+    },
+    {
+     "matricula": 41327,
+     "area": 427.6346
+    }
+   ]
+  },
+  {
+   "imovel": "Fazenda Santo Antonio",
+   "municipio": "Guapiaçu",
+   "ccir": "610.046.259.063-2",
+   "area_imovel": 2087.6581,
+   "matriculas": [
+    {
+     "matricula": 38971,
+     "area": 2017.4781
+    },
+    {
+     "matricula": 10632,
+     "area": 70.18
+    }
+   ]
+  },
+  {
+   "imovel": "Fazenda Alvorada",
+   "municipio": "Altair",
+   "ccir": "603.015.001.104-1",
+   "area_imovel": 679.2288,
+   "matriculas": [
+    {
+     "matricula": 7430,
+     "area": 584.914
+    },
+    {
+     "matricula": 44121,
+     "area": 20.7091
+    },
+    {
+     "matricula": 44122,
+     "area": 26.2366
+    },
+    {
+     "matricula": 44123,
+     "area": 18.7245
+    },
+    {
+     "matricula": 44124,
+     "area": 28.6446
+    }
+   ]
+  },
+  {
+   "imovel": "Fazenda Santa Inacia",
+   "municipio": "Colina",
+   "ccir": "604.020.001.457-3",
+   "area_imovel": 522.5,
+   "matriculas": [
+    {
+     "matricula": 14892,
+     "area": 522.5
+    }
+   ]
+  },
+  {
+   "imovel": "Fazenda Iracema",
+   "municipio": "Colina",
+   "ccir": "604.020.001.449-2",
+   "area_imovel": 550.99,
+   "matriculas": [
+    {
+     "matricula": 10319,
+     "area": 550.99
+    }
+   ]
+  },
+  {
+   "imovel": "Fazenda Vitória",
+   "municipio": "Santo Antonio do Aracanguá",
+   "ccir": "999.989.600.148-5",
+   "area_imovel": 386.0636,
+   "matriculas": [
+    {
+     "matricula": 45933,
+     "area": 10.18
+    },
+    {
+     "matricula": 45932,
+     "area": 123.778
+    },
+    {
+     "matricula": 49159,
+     "area": 94.8056
+    },
+    {
+     "matricula": 3201,
+     "area": 157.3
+    }
+   ]
+  },
+  {
+   "imovel": "Fazenda Santa Helena",
+   "municipio": "Santo Antonio do Aracanguá",
+   "ccir": "617.016.010.375-7",
+   "area_imovel": 338.79999999999995,
+   "matriculas": [
+    {
+     "matricula": 37883,
+     "area": 295.7632
+    },
+    {
+     "matricula": 37882,
+     "area": 43.0368
+    }
+   ]
+  },
+  {
+   "imovel": "Fazenda São José",
+   "municipio": "Severínia",
+   "ccir": "611.131.001.260-0",
+   "area_imovel": 519.332,
+   "matriculas": [
+    {
+     "matricula": 7207,
+     "area": 519.332
+    }
+   ]
+  },
+  {
+   "imovel": "Fazenda São Luiz",
+   "municipio": "Severínia",
+   "ccir": "611.131.000.710-0",
+   "area_imovel": 612.0772,
+   "matriculas": [
+    {
+     "matricula": 24047,
+     "area": 57.5718
+    },
+    {
+     "matricula": 30714,
+     "area": 20.656
+    },
+    {
+     "matricula": 12236,
+     "area": 271.645
+    },
+    {
+     "matricula": 12237,
+     "area": 245.7994
+    },
+    {
+     "matricula": 6710,
+     "area": 9.255
+    },
+    {
+     "matricula": 24932,
+     "area": 7.15
+    }
+   ]
+  },
+  {
+   "imovel": "Sítio São José I",
+   "municipio": "Severínia",
+   "ccir": "611.131.000.612-0",
+   "area_imovel": 16.94,
+   "matriculas": [
+    {
+     "matricula": 417,
+     "area": 16.94
+    }
+   ]
+  },
+  {
+   "imovel": "Fazenda Santa Rosa",
+   "municipio": "Altair",
+   "ccir": "636.061.049.859-9",
+   "area_imovel": 1285.0442,
+   "matriculas": [
+    {
+     "matricula": 18300,
+     "area": 1285.0442
+    }
+   ]
+  },
+  {
+   "imovel": "Fazenda Santa Cruz",
+   "municipio": "Onda Verde",
+   "ccir": "610.119.000.620-7",
+   "area_imovel": 91.96,
+   "matriculas": [
+    {
+     "matricula": 1469,
+     "area": 91.96
+    }
+   ]
+  },
+  {
+   "imovel": "Fazenda Santa Maria",
+   "municipio": "Monte Azul Paulista",
+   "ccir": "612.073.001.678-3",
+   "area_imovel": 341.22,
+   "matriculas": [
+    {
+     "matricula": 119,
+     "area": 341.22
+    }
+   ]
+  },
+  {
+   "imovel": "Fazenda São João",
+   "municipio": "Guaraci",
+   "ccir": "999.954.021.474-3",
+   "area_imovel": 1813.887,
+   "matriculas": [
+    {
+     "matricula": 45390,
+     "area": 32.052
+    },
+    {
+     "matricula": 28886,
+     "area": 13.9616
+    },
+    {
+     "matricula": 28885,
+     "area": 1767.8734
+    }
+   ]
+  },
+  {
+   "imovel": "Fazenda Primavera",
+   "municipio": "Santo Antonio do Aracanguá",
+   "ccir": "617.016.010.383-8",
+   "area_imovel": 2162.5182,
+   "matriculas": [
+    {
+     "matricula": 31031,
+     "area": 1908.4
+    },
+    {
+     "matricula": 30980,
+     "area": 121
+    },
+    {
+     "matricula": 37741,
+     "area": 133.1182
+    }
+   ]
+  },
+  {
+   "imovel": "Fazenda São Pedro",
+   "municipio": "Altair",
+   "ccir": "603.015.000.582-3",
+   "area_imovel": 231.57600000000002,
+   "matriculas": [
+    {
+     "matricula": 27246,
+     "area": 14.1328
+    },
+    {
+     "matricula": 27247,
+     "area": 19.36
+    },
+    {
+     "matricula": 1068,
+     "area": 17.8208
+    },
+    {
+     "matricula": 38870,
+     "area": 59.7517
+    },
+    {
+     "matricula": 38869,
+     "area": 33.3907
+    },
+    {
+     "matricula": 14073,
+     "area": 87.12
+    }
+   ]
+  },
+  {
+   "imovel": "Fazenda Lago Azul",
+   "municipio": "Teodoro Sampaio",
+   "ccir": "626.279.272.035-4",
+   "area_imovel": 1548.9164,
+   "matriculas": [
+    {
+     "matricula": 17063,
+     "area": 1548.9164
+    }
+   ]
+  },
+  {
+   "imovel": "Fazenda São Francisco (S.Pedro) GEO c/ desmembramento",
+   "municipio": "Guaraci",
+   "ccir": "603.023.003.344-5",
+   "area_imovel": 850.5923,
+   "matriculas": [
+    {
+     "matricula": 52198,
+     "area": 145.5166
+    },
+    {
+     "matricula": 52199,
+     "area": 55.3451
+    },
+    {
+     "matricula": 52200,
+     "area": 45.3106
+    },
+    {
+     "matricula": 89688,
+     "area": 248.34
+    },
+    {
+     "matricula": 89691,
+     "area": 134.74
+    },
+    {
+     "matricula": 89692,
+     "area": 221.34
+    }
+   ]
+  }
+ ],
+ "parceiras": [
+  {
+   "imovel": "FAZENDA CÓRREGO RICO - MFG-18000",
+   "incra": "603.015.272.353-7",
+   "matriculas": [
+    "10328 - 14023"
+   ],
+   "itr": [
+    "3.413.635-5"
+   ]
+  },
+  {
+   "imovel": "FAZENDA QUATRO IRMÃOS - SOAs-18001",
+   "incra": "000.019.292.982-2",
+   "matriculas": [
+    "9477"
+   ],
+   "itr": [
+    "0.784.839-0",
+    "6.134.436-2"
+   ]
+  },
+  {
+   "imovel": "FAZ. GIRASSOIS - GAQ-18002",
+   "incra": "000.019.292.966-0",
+   "matriculas": [
+    "9481"
+   ],
+   "itr": [
+    "6.134.436-2",
+    "0.323.933-0",
+    "7.349.298-1",
+    "0.327.778-0",
+    "3.694.372-0"
+   ]
+  },
+  {
+   "imovel": "FAZ. MANGUE - MQ",
+   "incra": "603.031.273.058-6",
+   "matriculas": [
+    "10487"
+   ],
+   "itr": [
+    "6.134.432-0",
+    "3.101.001-6",
+    "0.312.930-6"
+   ]
+  },
+  {
+   "imovel": "FAZENDA AGUA DOCE PARTE IV - RJP",
+   "incra": "603.031.000.400-4",
+   "matriculas": [
+    "17035"
+   ],
+   "itr": [
+    "0.312.930-6"
+   ]
+  },
+  {
+   "imovel": "FAZENDA AGUA DOCE PARTE II - MAP",
+   "incra": "999.989.956.007-8",
+   "matriculas": [
+    "17033"
+   ],
+   "itr": [
+    "8.876.740-0"
+   ]
+  },
+  {
+   "imovel": "FAZENDA ANTONIO BIANCO - SBA",
+   "incra": "603.031.273.066-7",
+   "matriculas": [
+    "11391"
+   ],
+   "itr": [
+    "3.101.001-6"
+   ]
+  },
+  {
+   "imovel": "FAZ. SANTO INACIO - ILMJA",
+   "incra": "950.122.860.476-5",
+   "matriculas": [
+    "14022"
+   ],
+   "itr": [
+    "0.327.777-1",
+    "3.694.372-0",
+    "3.262.606-1"
+   ]
+  },
+  {
+   "imovel": "FAZENDA CÓRREGO RICO - LAN",
+   "incra": "623.024.006.955-2",
+   "matriculas": [
+    "14021"
+   ],
+   "itr": [
+    "0.290.263-0",
+    "3.262.606-1",
+    "6.134.435-4",
+    "0.308.653-4"
+   ]
+  },
+  {
+   "imovel": "FAZENDA OLIVEIRA - MAO",
+   "incra": "603.031.000.507-8",
+   "matriculas": [
+    "17864"
+   ],
+   "itr": [
+    "0.322.197-0",
+    "0.300.029-0"
+   ]
+  }
+ ]
+}
