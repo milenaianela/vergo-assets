@@ -79,8 +79,31 @@ def indice_vegetacao(rgb: np.ndarray, tipo: str = "exg") -> np.ndarray:
     return 2 * (g / soma) - (r / soma) - (b / soma)  # ExG normalizado
 
 
+def _contraste_local(brilho, coluna, linha, raio_px):
+    """Quanto a copa e mais escura que o entorno imediato, em fracao (0 a 1).
+
+    Copa de arvore de verdade e nitidamente mais escura que o fundo. Touceira de
+    cana, mancha de soqueira e borda de carreador tem contraste baixo - e este e
+    o unico criterio que separa os dois numa imagem RGB de canavial."""
+    c, l = int(coluna), int(linha)
+    r1, r2 = int(raio_px), int(raio_px * 3)
+    y0, y1 = max(0, l - r2), min(brilho.shape[0], l + r2)
+    x0, x1 = max(0, c - r2), min(brilho.shape[1], c + r2)
+    if y1 - y0 < 4 or x1 - x0 < 4:
+        return 0.0
+    recorte = brilho[y0:y1, x0:x1]
+    yy, xx = np.mgrid[y0:y1, x0:x1]
+    dist = np.hypot(xx - c, yy - l)
+    dentro = dist <= r1
+    anel = (dist > r1 * 1.8) & (dist <= r2)
+    if dentro.sum() < 5 or anel.sum() < 20:
+        return 0.0
+    fundo = recorte[anel].mean()
+    return float((fundo - recorte[dentro].mean()) / (fundo + 1e-6))
+
+
 def _nucleo(rgb, mascara_aoi, res, raio_px, area_min, area_max, modo, indice,
-            limiar_vegetacao, sensibilidade):
+            limiar_vegetacao, sensibilidade, contraste_min=0.12):
     """Roda a deteccao num array RGB. Devolve lista de (coluna, linha, area_m2)."""
     from scipy import ndimage as ndi
     from skimage.feature import peak_local_max
@@ -150,7 +173,10 @@ def _nucleo(rgb, mascara_aoi, res, raio_px, area_min, area_max, modo, indice,
         linha, coluna = prop.centroid
         if not mascara_aoi[int(linha), int(coluna)]:
             continue
-        achados.append((float(coluna), float(linha), area_m2))
+        contraste = _contraste_local(brilho, coluna, linha, raio_px)
+        if contraste < contraste_min:
+            continue
+        achados.append((float(coluna), float(linha), area_m2, contraste))
     return achados
 
 
@@ -183,6 +209,7 @@ def detectar(
     indice: str = "exg",
     limiar_vegetacao: float | None = None,
     sensibilidade: float = 1.2,
+    contraste_min: float = 0.12,
     bloco_px: int = 4096,
     verboso: bool = True,
 ) -> Resultado:
@@ -207,7 +234,7 @@ def detectar(
                              "Confira se o KML e a imagem cobrem a mesma area.")
         em_blocos = largura * altura > LIMITE_PIXELS_MEMORIA
         margem = int(math.ceil(raio_px * 6))
-        achados: list[tuple[float, float, float]] = []
+        achados: list[tuple] = []
         pixels_aoi = 0
 
         if em_blocos:
@@ -230,9 +257,10 @@ def detectar(
                 rgb = src.read(indexes=[1, 2, 3], window=janela)
                 pixels_aoi += int(mascara.sum())
                 locais = _nucleo(rgb, mascara, res, raio_px, area_min, area_max,
-                                 modo, indice, limiar_vegetacao, sensibilidade)
-                achados += [(c + janela.col_off, l + janela.row_off, a)
-                            for c, l, a in locais]
+                                 modo, indice, limiar_vegetacao, sensibilidade,
+                                 contraste_min)
+                achados += [(c + janela.col_off, l + janela.row_off, a, k)
+                            for c, l, a, k in locais]
                 if verboso and i % 10 == 0:
                     print(f"    bloco {i}/{len(janelas)} - {len(achados)} copas",
                           flush=True)
@@ -250,21 +278,24 @@ def detectar(
             mascara, _ = _mascara_aoi(src, aoi, base)
             rgb = src.read(indexes=[1, 2, 3], window=base)
             locais = _nucleo(rgb, mascara, res, raio_px, area_min, area_max,
-                             modo, indice, limiar_vegetacao, sensibilidade)
-            achados = [(c + base.col_off, l + base.row_off, a) for c, l, a in locais]
+                             modo, indice, limiar_vegetacao, sensibilidade,
+                             contraste_min)
+            achados = [(c + base.col_off, l + base.row_off, a, k)
+                       for c, l, a, k in locais]
             pixels_aoi = int(mascara.sum())
             imagem, mascara_saida, escala = rgb, mascara, 1.0
 
         transform, crs = src.transform, src.crs
 
     arvores = []
-    for coluna, linha, area_m2 in achados:
+    for coluna, linha, area_m2, contraste in achados:
         x, y = transform * (coluna + 0.5, linha + 0.5)
         arvores.append({
             "id": len(arvores) + 1, "col": coluna, "lin": linha,
             "x": float(x), "y": float(y),
             "area_copa_m2": round(area_m2, 2),
             "diametro_copa_m": round(2 * math.sqrt(area_m2 / math.pi), 2),
+            "contraste": round(contraste, 3),
         })
     if crs is not None and arvores:
         lons, lats = warp_transform(crs, "EPSG:4326",
@@ -287,7 +318,8 @@ def detectar(
             "area_min_m2": round(area_min, 2), "area_max_m2": round(area_max, 2),
             "limiar_vegetacao": ("automatico (Otsu)" if limiar_vegetacao is None
                                  else round(float(limiar_vegetacao), 4)),
-            "sensibilidade": sensibilidade, "resolucao_m_px": round(res, 3),
+            "sensibilidade": sensibilidade, "contraste_min": contraste_min,
+            "resolucao_m_px": round(res, 3),
             "processamento": "em blocos" if em_blocos else "imagem inteira",
         },
     )
@@ -299,7 +331,7 @@ def _remover_duplicadas(achados, distancia_min):
         return achados
     from scipy.spatial import cKDTree
 
-    pontos = np.array([(c, l) for c, l, _ in achados])
+    pontos = np.array([(a[0], a[1]) for a in achados])
     arvore = cKDTree(pontos)
     descartar = set()
     for i, j in arvore.query_pairs(distancia_min):

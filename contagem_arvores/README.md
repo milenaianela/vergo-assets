@@ -72,6 +72,7 @@ novo com outros parâmetros — calibre em 2 ou 3 talhões antes de soltar os 50
 |---|---|
 | `--diametro-copa 6` | diâmetro médio de copa esperado, em metros. **É o ajuste principal.** Eucalipto adulto ~4 m, árvore isolada de pasto 8–12 m, café ~2 m |
 | `--sensibilidade 1.2` | acima de 1,2 detecta mais copas (e mais falsos positivos); abaixo detecta menos |
+| `--contraste-min 0.12` | quanto a copa precisa ser mais escura que o entorno. **É o filtro que separa árvore de touceira de cana**: em canavial use 0.20 a 0.25 |
 | `--modo escuro` | `escuro`: copa verde e mais escura que o pasto claro (padrão, típico de pasto e cerrado). `verde`: copa verde sobre solo exposto ou pasto seco. `brilho`: separa só por sombra, ignorando cor |
 | `--area-min` / `--area-max` | limites de área de copa em m², para descartar arbustos e manchas grandes de mata contínua |
 | `--camada "NOME"` | usa só uma pasta do KML, em vez da união de todas |
@@ -132,6 +133,20 @@ Em imagem real o erro é maior que isso. Expectativa realista:
 
 Regra prática de resolução: a copa precisa ter pelo menos ~10 pixels de diâmetro.
 Com imagem de 0,30 m/pixel isso significa copas a partir de ~3 m de diâmetro.
+
+### Canavial
+
+Testado em talhão de cana do Polo Canal (Pereira Barreto/SP, 0,30 m/pixel). Cana
+é verde e texturizada, então o índice de vegetação sozinho não separa nada: sem o
+filtro de contraste, 42 ha de cana limpa geraram 1.687 falsos positivos — todos
+touceira. Com `--contraste-min 0.22` sobrou 1, e a inspeção visual confirmou que
+não havia árvore nenhuma dentro do talhão. No mesmo recorte, a mata ciliar da
+represa, fora do talhão, foi detectada corretamente: 192 copas em 77,8 ha, copa
+mediana de 8,0 m.
+
+Ou seja: em polo de cana irrigada, a árvore não está no talhão — está na APP, no
+carreador e na sede. Rode a contagem na área **fora** dos talhões
+(`inspecionar --diferenca`), não dentro deles.
 
 ## Limitações e cuidados
 

@@ -62,7 +62,8 @@ def _por_feicao(args, caminho_tif, saida, fonte, geom_total) -> int:
                 tif_feicao, aoi=r["geom"], diametro_copa=args.diametro_copa,
                 area_min=args.area_min, area_max=args.area_max, modo=args.modo,
                 indice=args.indice, limiar_vegetacao=args.limiar_vegetacao,
-                sensibilidade=args.sensibilidade, verboso=False)
+                sensibilidade=args.sensibilidade,
+                contraste_min=args.contraste_min, verboso=False)
         except ValueError as erro:      # feicao fora da imagem
             print(f"      ignorada: {erro}")
             continue
@@ -145,6 +146,10 @@ def main(argv=None) -> int:
                    help="indice de vegetacao usado no RGB (padrao: exg)")
     p.add_argument("--limiar-vegetacao", type=float,
                    help="limiar manual do indice de vegetacao (padrao: Otsu automatico)")
+    p.add_argument("--contraste-min", type=float, default=0.12,
+                   help="quanto a copa precisa ser mais escura que o entorno "
+                        "(fracao). Suba para 0.20-0.25 em canavial, onde touceira "
+                        "de cana vira falso positivo")
     p.add_argument("--sensibilidade", type=float, default=1.2,
                    help=">1 detecta mais copas (e mais falsos positivos); <1 detecta menos")
     p.add_argument("--por-feicao", action="store_true",
@@ -206,7 +211,7 @@ def main(argv=None) -> int:
         caminho_tif, aoi=geom, diametro_copa=args.diametro_copa,
         area_min=args.area_min, area_max=args.area_max, modo=args.modo,
         indice=args.indice, limiar_vegetacao=args.limiar_vegetacao,
-        sensibilidade=args.sensibilidade)
+        sensibilidade=args.sensibilidade, contraste_min=args.contraste_min)
 
     print("[4/4] Gravando saidas...")
     saidas.escrever_kml(resultado, saida / "arvores.kml", nome=Path(args.kml).stem)

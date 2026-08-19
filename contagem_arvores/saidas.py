@@ -90,7 +90,8 @@ def escrever_geojson(resultado, caminho):
 
 
 def escrever_csv(resultado, caminho):
-    campos = ["id", "longitude", "latitude", "area_copa_m2", "diametro_copa_m"]
+    campos = ["id", "longitude", "latitude", "area_copa_m2", "diametro_copa_m",
+              "contraste"]
     with Path(caminho).open("w", newline="", encoding="utf-8") as f:
         escritor = csv.DictWriter(f, fieldnames=campos, extrasaction="ignore")
         escritor.writeheader()
