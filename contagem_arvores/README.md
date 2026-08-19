@@ -29,6 +29,26 @@ python -m contagem_arvores.contar_arvores fazenda.kml --baixar --provedor mapbox
 python -m contagem_arvores.contar_arvores fazenda.kml --baixar --url-template "https://.../{z}/{x}/{y}.jpg"
 ```
 
+### Arquivo com várias camadas
+
+KMZ exportado do Google Earth costuma trazer camadas empilhadas (talhões, SIGEF,
+SICAR). Contar na união de todas daria um número errado — inspecione primeiro e
+depois restrinja com `--camada`:
+
+```bash
+python -m contagem_arvores.inspecionar fazenda.kmz                  # lista as camadas
+python -m contagem_arvores.inspecionar fazenda.kmz --tabela talhoes.csv
+python -m contagem_arvores.inspecionar fazenda.kmz --mapa croqui.png
+python -m contagem_arvores.inspecionar fazenda.kmz --extrair "SICAR - Fazendas" --saida sicar.kml
+python -m contagem_arvores.inspecionar fazenda.kmz \
+    --diferenca "SICAR - Fazendas" "TALHOES" --saida fora_dos_talhoes.kml
+
+python -m contagem_arvores.contar_arvores fazenda.kmz --camada "SICAR - Fazendas" --imagem orto.tif
+```
+
+`--diferenca` é útil para isolar o que **não** é área cultivada (APP, reserva
+legal, carreadores, sede) — normalmente é ali que estão as árvores.
+
 ### Parâmetros que mais importam
 
 | Parâmetro | Para que serve |
@@ -37,6 +57,7 @@ python -m contagem_arvores.contar_arvores fazenda.kml --baixar --url-template "h
 | `--sensibilidade 1.2` | acima de 1,2 detecta mais copas (e mais falsos positivos); abaixo detecta menos |
 | `--modo escuro` | `escuro`: copa verde e mais escura que o pasto claro (padrão, típico de pasto e cerrado). `verde`: copa verde sobre solo exposto ou pasto seco. `brilho`: separa só por sombra, ignorando cor |
 | `--area-min` / `--area-max` | limites de área de copa em m², para descartar arbustos e manchas grandes de mata contínua |
+| `--camada "NOME"` | usa só uma pasta do KML, em vez da união de todas |
 | `--zoom 19` | nível de zoom dos tiles quando usa `--baixar` |
 | `--amostras 6` | número de parcelas recortadas para conferência manual |
 

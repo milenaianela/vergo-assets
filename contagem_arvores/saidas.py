@@ -35,6 +35,43 @@ def escrever_kml(resultado, caminho, nome="Arvores detectadas"):
     return caminho
 
 
+def escrever_kml_poligonos(geoms_nomes, caminho, nome="Camada", cor="7f00ff00"):
+    """Grava poligonos (lista de (geometria shapely WGS84, nome)) em KML."""
+    def anel(coords):
+        return " ".join(f"{x:.7f},{y:.7f},0" for x, y in coords)
+
+    def poligono_kml(p):
+        partes = ["<Polygon><outerBoundaryIs><LinearRing><coordinates>",
+                  anel(p.exterior.coords),
+                  "</coordinates></LinearRing></outerBoundaryIs>"]
+        for interior in p.interiors:
+            partes += ["<innerBoundaryIs><LinearRing><coordinates>",
+                       anel(interior.coords),
+                       "</coordinates></LinearRing></innerBoundaryIs>"]
+        partes.append("</Polygon>")
+        return "".join(partes)
+
+    saida = ['<?xml version="1.0" encoding="UTF-8"?>',
+             '<kml xmlns="http://www.opengis.net/kml/2.2"><Document>',
+             f"<name>{escape(nome)}</name>",
+             f'<Style id="poli"><LineStyle><color>ff0000ff</color><width>2</width>'
+             f"</LineStyle><PolyStyle><color>{cor}</color></PolyStyle></Style>"]
+    for geom, rotulo in geoms_nomes:
+        if geom is None or geom.is_empty:
+            continue
+        partes = list(geom.geoms) if hasattr(geom, "geoms") else [geom]
+        partes = [p for p in partes if p.geom_type == "Polygon" and not p.is_empty]
+        if not partes:
+            continue
+        corpo = ("<MultiGeometry>" + "".join(poligono_kml(p) for p in partes)
+                 + "</MultiGeometry>") if len(partes) > 1 else poligono_kml(partes[0])
+        saida.append(f"<Placemark><name>{escape(str(rotulo or ''))}</name>"
+                     f'<styleUrl>#poli</styleUrl>{corpo}</Placemark>')
+    saida.append("</Document></kml>")
+    Path(caminho).write_text("\n".join(saida), encoding="utf-8")
+    return Path(caminho)
+
+
 def escrever_geojson(resultado, caminho):
     feicoes = [
         {

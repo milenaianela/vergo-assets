@@ -25,6 +25,8 @@ def main(argv=None) -> int:
         description="Contagem de arvores por imagem de satelite a partir de um KML.",
         formatter_class=argparse.RawDescriptionHelpFormatter, epilog=__doc__)
     p.add_argument("kml", help="arquivo .kml, .kmz ou .geojson com o perimetro da area")
+    p.add_argument("--camada", help="usar apenas uma camada/pasta do KML "
+                   "(veja com: python -m contagem_arvores.inspecionar arquivo.kmz)")
     p.add_argument("--imagem", help="GeoTIFF RGB ja georreferenciado da area")
     p.add_argument("--baixar", action="store_true",
                    help="baixar mosaico de tiles do provedor escolhido")
@@ -59,9 +61,11 @@ def main(argv=None) -> int:
     saida.mkdir(parents=True, exist_ok=True)
 
     print(f"[1/4] Lendo perimetro: {args.kml}")
-    geom, nomes = mod_aoi.carregar_aoi(args.kml)
+    geom, nomes = mod_aoi.carregar_aoi(args.kml, camada=args.camada)
     ha = mod_aoi.area_hectares(geom)
     lon_min, lat_min, lon_max, lat_max = geom.bounds
+    if args.camada:
+        print(f"  camada: {args.camada}")
     print(f"  area do poligono: {ha:.2f} ha")
     print(f"  bbox: {lon_min:.6f},{lat_min:.6f} ate {lon_max:.6f},{lat_max:.6f}")
 
