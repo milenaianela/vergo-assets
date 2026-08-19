@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+resultado/
+contagem_arvores/testes/cena*.tif
+contagem_arvores/testes/area*.kml
+contagem_arvores/testes/saida_teste/

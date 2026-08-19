@@ -1,0 +1,118 @@
+"""Leitura da area de interesse (AOI): KML, KMZ ou GeoJSON -> poligono em WGS84."""
+
+from __future__ import annotations
+
+import json
+import zipfile
+from pathlib import Path
+from xml.etree import ElementTree as ET
+
+from shapely.geometry import MultiPolygon, Polygon, shape
+from shapely.ops import unary_union
+
+
+def _tag(elem) -> str:
+    """Nome do elemento sem o namespace (KML do Google Earth varia bastante)."""
+    return elem.tag.split("}")[-1]
+
+
+def _parse_coords(texto: str) -> list[tuple[float, float]]:
+    pontos = []
+    for bruto in texto.replace("\n", " ").replace("\t", " ").split():
+        partes = bruto.split(",")
+        if len(partes) >= 2:
+            try:
+                pontos.append((float(partes[0]), float(partes[1])))
+            except ValueError:
+                continue
+    return pontos
+
+
+def _poligonos_kml(raiz) -> list[Polygon]:
+    poligonos = []
+    for elem in raiz.iter():
+        if _tag(elem) != "Polygon":
+            continue
+        externo, buracos = None, []
+        for filho in elem.iter():
+            nome = _tag(filho)
+            if nome not in ("outerBoundaryIs", "innerBoundaryIs"):
+                continue
+            coords_elem = [c for c in filho.iter() if _tag(c) == "coordinates"]
+            if not coords_elem or not coords_elem[0].text:
+                continue
+            anel = _parse_coords(coords_elem[0].text)
+            if len(anel) < 4:
+                continue
+            if nome == "outerBoundaryIs":
+                externo = anel
+            else:
+                buracos.append(anel)
+        if externo:
+            poligonos.append(Polygon(externo, buracos))
+
+    # Fallback: KML com LinearRing/LineString solto, sem <Polygon>.
+    if not poligonos:
+        for elem in raiz.iter():
+            if _tag(elem) not in ("LinearRing", "LineString"):
+                continue
+            coords_elem = [c for c in elem.iter() if _tag(c) == "coordinates"]
+            if coords_elem and coords_elem[0].text:
+                anel = _parse_coords(coords_elem[0].text)
+                if len(anel) >= 4:
+                    poligonos.append(Polygon(anel))
+    return poligonos
+
+
+def carregar_aoi(caminho: str | Path):
+    """Devolve (geometria WGS84, lista de nomes dos talhoes)."""
+    caminho = Path(caminho)
+    sufixo = caminho.suffix.lower()
+
+    if sufixo == ".kmz":
+        with zipfile.ZipFile(caminho) as z:
+            internos = [n for n in z.namelist() if n.lower().endswith(".kml")]
+            if not internos:
+                raise ValueError(f"{caminho.name}: KMZ sem nenhum .kml dentro.")
+            raiz = ET.fromstring(z.read(internos[0]))
+        poligonos = _poligonos_kml(raiz)
+        nomes = [e.text for e in raiz.iter() if _tag(e) == "name" and e.text]
+    elif sufixo == ".kml":
+        raiz = ET.parse(caminho).getroot()
+        poligonos = _poligonos_kml(raiz)
+        nomes = [e.text for e in raiz.iter() if _tag(e) == "name" and e.text]
+    elif sufixo in (".geojson", ".json"):
+        dados = json.loads(caminho.read_text(encoding="utf-8"))
+        feicoes = dados.get("features", [dados])
+        poligonos, nomes = [], []
+        for f in feicoes:
+            geom = shape(f.get("geometry", f))
+            if isinstance(geom, Polygon):
+                poligonos.append(geom)
+            elif isinstance(geom, MultiPolygon):
+                poligonos.extend(geom.geoms)
+            nome = (f.get("properties") or {}).get("name")
+            if nome:
+                nomes.append(nome)
+    else:
+        raise ValueError(f"Formato nao suportado: {sufixo}. Use .kml, .kmz ou .geojson")
+
+    poligonos = [p.buffer(0) for p in poligonos if p.is_valid or p.buffer(0).is_valid]
+    poligonos = [p for p in poligonos if not p.is_empty and p.area > 0]
+    if not poligonos:
+        raise ValueError(f"{caminho.name}: nenhum poligono encontrado no arquivo.")
+
+    geom = unary_union(poligonos)
+    return geom, nomes
+
+
+def area_hectares(geom) -> float:
+    """Area do poligono WGS84 em hectares (projecao equivalente local)."""
+    import math
+
+    lat0 = geom.centroid.y
+    m_por_grau_lat = 111_132.92 - 559.82 * math.cos(2 * math.radians(lat0))
+    m_por_grau_lon = 111_412.84 * math.cos(math.radians(lat0))
+    from shapely.affinity import scale
+
+    return scale(geom, xfact=m_por_grau_lon, yfact=m_por_grau_lat, origin=(0, 0, 0)).area / 10_000
