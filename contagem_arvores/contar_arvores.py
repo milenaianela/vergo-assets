@@ -63,7 +63,9 @@ def _por_feicao(args, caminho_tif, saida, fonte, geom_total) -> int:
                 area_min=args.area_min, area_max=args.area_max, modo=args.modo,
                 indice=args.indice, limiar_vegetacao=args.limiar_vegetacao,
                 sensibilidade=args.sensibilidade,
-                contraste_min=args.contraste_min, verboso=False)
+                contraste_min=args.contraste_min,
+                area_fragmento=args.area_fragmento, dist_vizinha=args.dist_vizinha,
+                verboso=False)
         except ValueError as erro:      # feicao fora da imagem
             print(f"      ignorada: {erro}")
             continue
@@ -150,6 +152,12 @@ def main(argv=None) -> int:
                    help="quanto a copa precisa ser mais escura que o entorno "
                         "(fracao). Suba para 0.20-0.25 em canavial, onde touceira "
                         "de cana vira falso positivo")
+    p.add_argument("--area-fragmento", type=float, default=400.0,
+                   help="area maxima do agrupamento de copas para o individuo ainda "
+                        "contar como isolado, em m2 (padrao: 400)")
+    p.add_argument("--dist-vizinha", type=float, default=12.0,
+                   help="distancia minima ate a copa vizinha para contar como "
+                        "isolada, em metros (padrao: 12)")
     p.add_argument("--sensibilidade", type=float, default=1.2,
                    help=">1 detecta mais copas (e mais falsos positivos); <1 detecta menos")
     p.add_argument("--por-feicao", action="store_true",
@@ -211,12 +219,16 @@ def main(argv=None) -> int:
         caminho_tif, aoi=geom, diametro_copa=args.diametro_copa,
         area_min=args.area_min, area_max=args.area_max, modo=args.modo,
         indice=args.indice, limiar_vegetacao=args.limiar_vegetacao,
-        sensibilidade=args.sensibilidade, contraste_min=args.contraste_min)
+        sensibilidade=args.sensibilidade, contraste_min=args.contraste_min,
+        area_fragmento=args.area_fragmento, dist_vizinha=args.dist_vizinha)
 
     print("[4/4] Gravando saidas...")
     saidas.escrever_kml(resultado, saida / "arvores.kml", nome=Path(args.kml).stem)
     saidas.escrever_geojson(resultado, saida / "arvores.geojson")
     saidas.escrever_csv(resultado, saida / "arvores.csv")
+    saidas.escrever_planilha_campo(resultado, saida / "inventario_campo.csv")
+    saidas.escrever_kml(resultado, saida / "arvores_isoladas.kml",
+                        nome=f"{Path(args.kml).stem} - isoladas", apenas_isoladas=True)
     saidas.salvar_conferencia(resultado, saida / "conferencia.png")
     if args.amostras:
         saidas.salvar_amostras(resultado, saida / "amostras", n=args.amostras,
@@ -226,7 +238,10 @@ def main(argv=None) -> int:
                               nomes=nomes[:5])
 
     print()
+    isoladas = sum(1 for a in resultado.arvores if a.get("classificacao") == "isolada")
     print(f"  ARVORES DETECTADAS: {resultado.total}")
+    print(f"  Isoladas..........: {isoladas} "
+          f"(as demais estao em fragmento/macico)")
     print(f"  Area analisada....: {resultado.area_ha:.2f} ha")
     print(f"  Densidade.........: {resultado.densidade:.1f} arvores/ha")
     print(f"  Saidas em.........: {saida.resolve()}")

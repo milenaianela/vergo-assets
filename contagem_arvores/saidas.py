@@ -9,8 +9,11 @@ from pathlib import Path
 from xml.sax.saxutils import escape
 
 
-def escrever_kml(resultado, caminho, nome="Arvores detectadas"):
+def escrever_kml(resultado, caminho, nome="Arvores detectadas",
+                 apenas_isoladas=False):
     caminho = Path(caminho)
+    arvores = [a for a in resultado.arvores
+               if not apenas_isoladas or a.get("classificacao") == "isolada"]
     partes = [
         '<?xml version="1.0" encoding="UTF-8"?>',
         '<kml xmlns="http://www.opengis.net/kml/2.2"><Document>',
@@ -18,15 +21,16 @@ def escrever_kml(resultado, caminho, nome="Arvores detectadas"):
         '<Style id="arvore"><IconStyle><scale>0.6</scale><color>ff00c814</color>'
         '<Icon><href>http://maps.google.com/mapfiles/kml/shapes/placemark_circle.png</href>'
         "</Icon></IconStyle><LabelStyle><scale>0</scale></LabelStyle></Style>",
-        f"<Folder><name>{len(resultado.arvores)} arvores</name>",
+        f"<Folder><name>{len(arvores)} arvores</name>",
     ]
-    for a in resultado.arvores:
+    for a in arvores:
         if "longitude" not in a:
             continue
         partes.append(
             f"<Placemark><name>{a['id']}</name><styleUrl>#arvore</styleUrl>"
             f"<description>copa: {a['diametro_copa_m']} m | "
-            f"area: {a['area_copa_m2']} m2</description>"
+            f"area: {a['area_copa_m2']} m2 | {a.get('classificacao', '-')}"
+            f"</description>"
             f"<Point><coordinates>{a['longitude']},{a['latitude']},0</coordinates></Point>"
             "</Placemark>"
         )
@@ -91,11 +95,39 @@ def escrever_geojson(resultado, caminho):
 
 def escrever_csv(resultado, caminho):
     campos = ["id", "longitude", "latitude", "area_copa_m2", "diametro_copa_m",
-              "contraste"]
+              "classificacao", "dist_vizinha_m", "area_agrupamento_m2", "contraste"]
     with Path(caminho).open("w", newline="", encoding="utf-8") as f:
         escritor = csv.DictWriter(f, fieldnames=campos, extrasaction="ignore")
         escritor.writeheader()
         escritor.writerows(resultado.arvores)
+    return Path(caminho)
+
+
+CAMPOS_CAMPO = ["especie_nome_comum", "especie_nome_cientifico", "CAP_cm", "DAP_cm",
+                "altura_total_m", "altura_fuste_m", "estado_fitossanitario",
+                "situacao", "justificativa_supressao", "observacoes"]
+
+
+def escrever_planilha_campo(resultado, caminho, apenas_isoladas=True):
+    """Planilha de inventario: o que o satelite ja preencheu + colunas de campo.
+
+    Especie, CAP/DAP e altura nao saem de imagem de satelite - so de vistoria.
+    O que a imagem entrega e a lista georreferenciada dos individuos a visitar."""
+    arvores = [a for a in resultado.arvores
+               if not apenas_isoladas or a.get("classificacao") == "isolada"]
+    campos = (["n_arvore", "latitude", "longitude", "utm_x", "utm_y",
+               "diametro_copa_estimado_m", "area_copa_m2"] + CAMPOS_CAMPO)
+    with Path(caminho).open("w", newline="", encoding="utf-8-sig") as f:
+        escritor = csv.DictWriter(f, fieldnames=campos, delimiter=";")
+        escritor.writeheader()
+        for i, a in enumerate(arvores, start=1):
+            escritor.writerow({
+                "n_arvore": i,
+                "latitude": a.get("latitude"), "longitude": a.get("longitude"),
+                "utm_x": round(a["x"], 2), "utm_y": round(a["y"], 2),
+                "diametro_copa_estimado_m": a["diametro_copa_m"],
+                "area_copa_m2": a["area_copa_m2"],
+            })
     return Path(caminho)
 
 
@@ -112,10 +144,12 @@ def salvar_conferencia(resultado, caminho, aoi_pixels=None, max_lado=2500):
     desenho = ImageDraw.Draw(desenho_img)
     raio = max(3, int(3 * escala * 2))
     for a in resultado.arvores:
+        cor = ((255, 40, 40) if a.get("classificacao") == "isolada"
+               else (60, 140, 255))
         cx = (a["col"] - resultado.col_off) * escala
         cy = (a["lin"] - resultado.lin_off) * escala
         r = max(3.0, (a["diametro_copa_m"] / 2 / resultado.resolucao_m) * escala)
-        desenho.ellipse([cx - r, cy - r, cx + r, cy + r], outline=(255, 40, 40), width=2)
+        desenho.ellipse([cx - r, cy - r, cx + r, cy + r], outline=cor, width=2)
     desenho_img.save(caminho)
     return Path(caminho)
 

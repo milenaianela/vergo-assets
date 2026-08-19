@@ -80,9 +80,28 @@ novo com outros parâmetros — calibre em 2 ou 3 talhões antes de soltar os 50
 | `--zoom 19` | nível de zoom dos tiles quando usa `--baixar` |
 | `--amostras 6` | número de parcelas recortadas para conferência manual |
 
+### Árvore isolada x fragmento
+
+Para inventário de supressão de árvore isolada, o que importa é separar o
+indivíduo isolado do maciço — regimes legais diferentes. Cada copa detectada é
+classificada por dois critérios:
+
+- a **mancha de dossel** a que ela pertence (vegetação escura, fechada na escala
+  da copa) tem menos que `--area-fragmento` m² — padrão 400; mata ciliar vira um
+  único componente de dezenas de milhares de m², árvore isolada vira um
+  componente do tamanho da própria copa;
+- a copa vizinha mais próxima está a mais de `--dist-vizinha` metros — padrão 12.
+
+Saem daí o `arvores_isoladas.kml` (só as isoladas) e o `inventario_campo.csv`,
+já com as colunas de campo em branco.
+
 ### Saídas (pasta `resultado/`)
 
 - `arvores.kml` — **abre direto no Google Earth**, um ponto por árvore
+- `arvores_isoladas.kml` — só os indivíduos classificados como isolados
+- `inventario_campo.csv` — planilha de vistoria: coordenada e diâmetro de copa
+  preenchidos, colunas de espécie, CAP, DAP, altura e estado fitossanitário em
+  branco para o time de campo
 - `arvores.geojson` / `arvores.csv` — para QGIS, ArcGIS ou planilha
 - `conferencia.png` — imagem toda com cada copa circulada
 - `amostras/` — parcelas de 100 × 100 m recortadas em duas versões (limpa e com
@@ -147,6 +166,12 @@ mediana de 8,0 m.
 Ou seja: em polo de cana irrigada, a árvore não está no talhão — está na APP, no
 carreador e na sede. Rode a contagem na área **fora** dos talhões
 (`inspecionar --diferenca`), não dentro deles.
+
+No mesmo recorte de 77,8 ha, a classificação separou 146 copas em fragmento
+(mata ciliar da represa) de 46 candidatas a árvore isolada, em carreador e borda
+de talhão. Conferindo as candidatas uma a uma na imagem, parte é árvore de
+verdade e parte é arbusto de barranco ou árvore de borda do fragmento — por isso
+a lista é **pré-cadastro para vistoria**, não inventário fechado.
 
 ## Limitações e cuidados
 

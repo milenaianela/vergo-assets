@@ -103,13 +103,14 @@ def _contraste_local(brilho, coluna, linha, raio_px):
 
 
 def _nucleo(rgb, mascara_aoi, res, raio_px, area_min, area_max, modo, indice,
-            limiar_vegetacao, sensibilidade, contraste_min=0.12):
+            limiar_vegetacao, sensibilidade, contraste_min=0.12,
+            limiar_dossel=0.45):
     """Roda a deteccao num array RGB. Devolve lista de (coluna, linha, area_m2)."""
     from scipy import ndimage as ndi
     from skimage.feature import peak_local_max
     from skimage.filters import gaussian, threshold_otsu
     from skimage.measure import regionprops
-    from skimage.morphology import disk, white_tophat
+    from skimage.morphology import closing, disk, white_tophat
     from skimage.segmentation import watershed
 
     if not mascara_aoi.any():
@@ -154,6 +155,14 @@ def _nucleo(rgb, mascara_aoi, res, raio_px, area_min, area_max, modo, indice,
     tamanhos = np.bincount(marcados.ravel())
     mascara_copa &= ~np.isin(marcados, np.flatnonzero(tamanhos < min_px))
 
+    # mascara de dossel: vegetacao escura, fechada na escala da copa. Fragmento de
+    # mata vira um unico componente de milhares de m2; arvore isolada vira um
+    # componente do tamanho da propria copa. E o que separa isolada de macico.
+    mascara_dossel = closing(mascara_veg & (norm(brilho_suave) < limiar_dossel),
+                             disk(int(round(raio_px))))
+    agrupamentos, _ = ndi.label(mascara_dossel)
+    area_agrupamento = np.bincount(agrupamentos.ravel()) * area_px
+
     distancia = ndi.distance_transform_edt(mascara_copa)
     coords = peak_local_max(
         gaussian(realce, sigma=raio_px / 2.0) * mascara_copa,
@@ -176,7 +185,9 @@ def _nucleo(rgb, mascara_aoi, res, raio_px, area_min, area_max, modo, indice,
         contraste = _contraste_local(brilho, coluna, linha, raio_px)
         if contraste < contraste_min:
             continue
-        achados.append((float(coluna), float(linha), area_m2, contraste))
+        grupo = agrupamentos[int(linha), int(coluna)]
+        achados.append((float(coluna), float(linha), area_m2, contraste,
+                        float(area_agrupamento[grupo]) if grupo else area_m2))
     return achados
 
 
@@ -210,6 +221,8 @@ def detectar(
     limiar_vegetacao: float | None = None,
     sensibilidade: float = 1.2,
     contraste_min: float = 0.12,
+    area_fragmento: float = 400.0,
+    dist_vizinha: float = 12.0,
     bloco_px: int = 4096,
     verboso: bool = True,
 ) -> Resultado:
@@ -259,8 +272,8 @@ def detectar(
                 locais = _nucleo(rgb, mascara, res, raio_px, area_min, area_max,
                                  modo, indice, limiar_vegetacao, sensibilidade,
                                  contraste_min)
-                achados += [(c + janela.col_off, l + janela.row_off, a, k)
-                            for c, l, a, k in locais]
+                achados += [(c + janela.col_off, l + janela.row_off, a, k, g)
+                            for c, l, a, k, g in locais]
                 if verboso and i % 10 == 0:
                     print(f"    bloco {i}/{len(janelas)} - {len(achados)} copas",
                           flush=True)
@@ -280,15 +293,15 @@ def detectar(
             locais = _nucleo(rgb, mascara, res, raio_px, area_min, area_max,
                              modo, indice, limiar_vegetacao, sensibilidade,
                              contraste_min)
-            achados = [(c + base.col_off, l + base.row_off, a, k)
-                       for c, l, a, k in locais]
+            achados = [(c + base.col_off, l + base.row_off, a, k, g)
+                       for c, l, a, k, g in locais]
             pixels_aoi = int(mascara.sum())
             imagem, mascara_saida, escala = rgb, mascara, 1.0
 
         transform, crs = src.transform, src.crs
 
     arvores = []
-    for coluna, linha, area_m2, contraste in achados:
+    for coluna, linha, area_m2, contraste, area_grupo in achados:
         x, y = transform * (coluna + 0.5, linha + 0.5)
         arvores.append({
             "id": len(arvores) + 1, "col": coluna, "lin": linha,
@@ -296,6 +309,7 @@ def detectar(
             "area_copa_m2": round(area_m2, 2),
             "diametro_copa_m": round(2 * math.sqrt(area_m2 / math.pi), 2),
             "contraste": round(contraste, 3),
+            "area_agrupamento_m2": round(area_grupo, 1),
         })
     if crs is not None and arvores:
         lons, lats = warp_transform(crs, "EPSG:4326",
@@ -303,8 +317,14 @@ def detectar(
         for a, lon, lat in zip(arvores, lons, lats):
             a["longitude"], a["latitude"] = round(lon, 7), round(lat, 7)
 
+    # x/y estao nas unidades do CRS do raster; em Web Mercator elas nao sao metros
+    fator_metros = res / abs(transform.a) if transform.a else 1.0
+    _classificar(arvores, area_fragmento, dist_vizinha, fator_metros)
+
     area_ha = pixels_aoi * area_px / 10_000
     if verboso:
+        isoladas = sum(1 for a in arvores if a["classificacao"] == "isolada")
+        print(f"  isoladas: {isoladas} | em fragmento: {len(arvores) - isoladas}")
         print(f"  resolucao: {res:.2f} m/pixel | raio de copa: {raio_px:.1f} px")
         print(f"  area analisada: {area_ha:.2f} ha | copas validas: {len(arvores)}")
 
@@ -319,10 +339,37 @@ def detectar(
             "limiar_vegetacao": ("automatico (Otsu)" if limiar_vegetacao is None
                                  else round(float(limiar_vegetacao), 4)),
             "sensibilidade": sensibilidade, "contraste_min": contraste_min,
+            "area_fragmento_m2": area_fragmento, "dist_vizinha_m": dist_vizinha,
             "resolucao_m_px": round(res, 3),
             "processamento": "em blocos" if em_blocos else "imagem inteira",
         },
     )
+
+
+def _classificar(arvores, area_fragmento, dist_vizinha, fator_metros=1.0):
+    """Marca cada copa como 'isolada' ou 'em fragmento'.
+
+    Arvore isolada, para fins de autorizacao de supressao, e o individuo cuja copa
+    nao encosta em outra e que nao faz parte de macico. Aqui: o agrupamento de
+    copas a que ela pertence tem area menor que `area_fragmento`, e a copa vizinha
+    mais proxima esta a mais de `dist_vizinha` metros."""
+    if not arvores:
+        return
+    from scipy.spatial import cKDTree
+
+    pontos = np.array([(a["x"], a["y"]) for a in arvores])
+    arvore_kd = cKDTree(pontos)
+    k = min(2, len(arvores))
+    distancias, _ = arvore_kd.query(pontos, k=k)
+    vizinha = (distancias[:, 1] if k == 2 else
+               np.full(len(arvores), np.inf))
+
+    for a, dist in zip(arvores, vizinha):
+        dist = dist * fator_metros
+        a["dist_vizinha_m"] = round(float(dist), 1) if np.isfinite(dist) else None
+        sozinha = (a["area_agrupamento_m2"] <= area_fragmento
+                   and (not np.isfinite(dist) or dist >= dist_vizinha))
+        a["classificacao"] = "isolada" if sozinha else "em fragmento"
 
 
 def _remover_duplicadas(achados, distancia_min):
