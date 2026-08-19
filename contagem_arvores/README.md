@@ -85,6 +85,12 @@ legal, carreadores, sede) — normalmente é ali que estão as árvores.
 Não precisa de GPU, nem de dados de treinamento, nem de internet quando a imagem
 já está em disco.
 
+Imagem acima de 40 milhões de pixels (≈ 360 ha a 0,30 m/pixel) é processada em
+blocos de 4096 px com sobreposição, e as copas repetidas na emenda dos blocos são
+removidas por distância — dá para rodar uma fazenda inteira sem estourar a
+memória. A imagem de conferência sai reduzida nesse caso; as parcelas de
+`amostras/` continuam em resolução original, lidas direto do GeoTIFF.
+
 ## Precisão medida
 
 Validação em cena sintética de pasto (0,30 m/pixel, 7,3 ha, sombras e estrada de
@@ -93,6 +99,7 @@ terra, verdade de campo conhecida):
 | Cenário | Verdade | Detectado | Precisão | Recall | Erro na contagem |
 |---|---|---|---|---|---|
 | Árvores isoladas (espaçamento ≥ 8 m) | 107 | 106 | 100 % | 99 % | −0,9 % |
+| Mesma cena, processada em blocos | 107 | 108 | 98 % | 99 % | +0,9 % |
 | Copas encostadas / adensadas | 112 | 102 | — | — | −8,9 % |
 
 Em imagem real o erro é maior que isso. Expectativa realista:

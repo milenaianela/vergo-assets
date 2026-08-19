@@ -104,7 +104,8 @@ def salvar_conferencia(resultado, caminho, aoi_pixels=None, max_lado=2500):
     from PIL import Image, ImageDraw
 
     img = Image.fromarray(resultado.imagem.transpose(1, 2, 0).astype("uint8"))
-    escala = min(1.0, max_lado / max(img.size))
+    # imagem pode estar reduzida (processamento em blocos): converte px do raster
+    escala = min(1.0, max_lado / max(img.size)) * resultado.escala_imagem
     desenho_img = img.resize((int(img.width * escala), int(img.height * escala))) \
         if escala < 1 else img.copy()
     desenho = ImageDraw.Draw(desenho_img)
@@ -117,16 +118,35 @@ def salvar_conferencia(resultado, caminho, aoi_pixels=None, max_lado=2500):
     return Path(caminho)
 
 
+def _recortar(resultado, x0, y0, lado_px):
+    """Recorte em resolucao original: le do GeoTIFF quando a imagem esta reduzida."""
+    from PIL import Image
+
+    if resultado.escala_imagem == 1.0 and resultado.imagem is not None:
+        img = Image.fromarray(resultado.imagem.transpose(1, 2, 0).astype("uint8"))
+        return img.crop((x0, y0, x0 + lado_px, y0 + lado_px))
+
+    import rasterio
+    from rasterio.windows import Window
+
+    with rasterio.open(resultado.caminho) as src:
+        janela = Window(x0, y0, min(lado_px, src.width - x0),
+                        min(lado_px, src.height - y0))
+        rgb = src.read(indexes=[1, 2, 3], window=janela)
+    return Image.fromarray(rgb.transpose(1, 2, 0).astype("uint8"))
+
+
 def salvar_amostras(resultado, pasta, n=8, lado_m=100, semente=42):
     """Recorta parcelas quadradas para conferencia manual (validacao da contagem)."""
     from PIL import Image, ImageDraw
 
     pasta = Path(pasta)
     pasta.mkdir(parents=True, exist_ok=True)
-    img = Image.fromarray(resultado.imagem.transpose(1, 2, 0).astype("uint8"))
     lado_px = int(lado_m / resultado.resolucao_m)
     rnd = random.Random(semente)
-    altura, largura = resultado.mascara_aoi.shape
+    fator_mascara = resultado.escala_imagem
+    altura = int(resultado.mascara_aoi.shape[0] / fator_mascara)
+    largura = int(resultado.mascara_aoi.shape[1] / fator_mascara)
     linhas = []
     tentativas = 0
     while len(linhas) < n and tentativas < n * 200:
@@ -135,12 +155,14 @@ def salvar_amostras(resultado, pasta, n=8, lado_m=100, semente=42):
             break
         x0 = rnd.randint(0, largura - lado_px)
         y0 = rnd.randint(0, altura - lado_px)
-        recorte_mascara = resultado.mascara_aoi[y0:y0 + lado_px, x0:x0 + lado_px]
+        ym, xm = int(y0 * fator_mascara), int(x0 * fator_mascara)
+        lm = max(1, int(lado_px * fator_mascara))
+        recorte_mascara = resultado.mascara_aoi[ym:ym + lm, xm:xm + lm]
         if recorte_mascara.mean() < 0.98:      # so parcelas 100% dentro da AOI
             continue
         dentro = [a for a in resultado.arvores
                   if x0 <= a["col"] < x0 + lado_px and y0 <= a["lin"] < y0 + lado_px]
-        recorte = img.crop((x0, y0, x0 + lado_px, y0 + lado_px)).resize((900, 900))
+        recorte = _recortar(resultado, x0, y0, lado_px).resize((900, 900))
         marcado = recorte.copy()
         desenho = ImageDraw.Draw(marcado)
         fator = 900 / lado_px
